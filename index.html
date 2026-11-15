@@ -112,11 +112,17 @@ summary{cursor:pointer;font-weight:500}
 .toast.on{opacity:1}
 @media (prefers-reduced-motion:reduce){.toast{transition:none}}
 
+/* Pestañas de cuentas (ej: Tienda / Kekes) */
+.cuentas{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;margin:0 0 6px;padding:2px 0}
+.cuentas::-webkit-scrollbar{display:none}
+.cuentas button{flex:1 0 auto;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:10px 14px;font-weight:500;color:var(--muted);white-space:nowrap}
+.cuentas button[aria-pressed="true"]{background:var(--brand-ui);border-color:var(--brand-ui);color:var(--brand-ui-ink)}
+
 /* ===== Responsive ===== */
 /* Celular / tablet: una columna, en este orden */
 #app:not([hidden]){display:flex;flex-direction:column}
 .col-a,.col-b{display:contents}
-.col-a .label{order:1} #balance{order:2} #startForm{order:3}
+#cuentasTabs{order:0} .col-a .label{order:1} #balance{order:2} #startForm{order:3}
 .col-b .month{order:4} .stats{order:5} #bars{order:6}
 #addForm{order:7} #list{order:8} #app details{order:9}
 @media (max-width:380px){
@@ -168,11 +174,12 @@ summary{cursor:pointer;font-weight:500}
 
   <section id="app" hidden>
    <div class="col-a">
+    <div class="cuentas" id="cuentasTabs" role="group" aria-label="Cuenta" hidden></div>
     <p class="label">Saldo disponible</p>
     <div class="total" id="balance">…</div>
 
     <form class="start" id="startForm" hidden autocomplete="off">
-      <h2>¿Con cuánto dinero empiezas?</h2>
+      <h2 id="startTitle">¿Con cuánto dinero empiezas?</h2>
       <p>Suma lo que el negocio tiene hoy en caja, Yape/Plin y cuentas. Desde aquí se irán restando los gastos.</p>
       <div class="amount"><span class="cur"></span><input id="startAmount" inputmode="decimal" placeholder="0.00" aria-label="Saldo inicial" required></div>
       <button class="primary" type="submit" id="startBtn">Guardar saldo inicial</button>
@@ -244,6 +251,8 @@ let CATS = { ...DEFAULT_CATS };
 const $ = id => document.getElementById(id);
 let sb, user = null, items = [], kind = "gasto", cat = CATS.gasto[0], currency = "S/", loadToken = 0;
 let balance = null, hasMovements = true, listMsg = null;
+// Cuentas separadas dentro de la empresa (ej: tienda y kekes). Sin configurar = una sola cuenta "principal".
+let cuentas = [], cuenta = "principal";
 let view = new Date(); view.setDate(1);
 
 const pad = n => String(n).padStart(2,"0");
@@ -281,8 +290,16 @@ function cleanCats(arr){
 function applyBrand(e){
   const root = document.documentElement.style;
   ["--brand","--brand-ink","--brand-ui","--brand-ui-ink","--accent","--accent-ink"].forEach(v=>root.removeProperty(v));
-  CATS = { gasto: cleanCats(e?.cat_gastos) || DEFAULT_CATS.gasto, ingreso: cleanCats(e?.cat_ingresos) || DEFAULT_CATS.ingreso };
-  if(!CATS[kind].includes(cat)) cat = CATS[kind][0];
+  const base = { gasto: cleanCats(e?.cat_gastos) || DEFAULT_CATS.gasto, ingreso: cleanCats(e?.cat_ingresos) || DEFAULT_CATS.ingreso };
+  const seen = new Set();
+  cuentas = (Array.isArray(e?.cuentas) ? e.cuentas : []).filter(c=>{
+    const ok = c && /^[a-z0-9_-]{1,30}$/.test(c.id||"") && !seen.has(c.id); if(ok) seen.add(c.id); return ok;
+  }).map(c=>({ id:c.id, nombre:String(c.nombre||c.id).trim().slice(0,40),
+               cats:{ gasto: cleanCats(c.cat_gastos) || base.gasto, ingreso: cleanCats(c.cat_ingresos) || base.ingreso } }));
+  if(!cuentas.length) cuentas = [{ id:"principal", nombre:"", cats:base }];
+  let saved = null; try{ saved = localStorage.getItem("cuenta:"+(user?.id||"")); }catch(_){}
+  cuenta = cuentas.some(c=>c.id===saved) ? saved : cuentas[0].id;
+  setCats();
   const name = e?.nombre?.trim() || "";
   document.title = name || "Gastos del negocio";
   document.querySelector('meta[name="apple-mobile-web-app-title"]').content = name || "Gastos del negocio";
@@ -298,9 +315,28 @@ function applyBrand(e){
   if(HEX.test(e?.color_acento||"")){ root.setProperty("--accent", e.color_acento); root.setProperty("--accent-ink", inkFor(e.color_acento)); }
   document.querySelector('meta[name="theme-color"]').content = theme;
 }
+const cuentaActual = () => cuentas.find(c=>c.id===cuenta) || cuentas[0];
+function setCats(){
+  CATS = cuentaActual().cats;
+  if(!CATS[kind].includes(cat)) cat = CATS[kind][0];
+}
+function renderCuentas(){
+  const tabs = $("cuentasTabs"), multi = cuentas.length > 1;
+  tabs.hidden = !multi;
+  tabs.innerHTML = multi ? cuentas.map(c=>`<button type="button" data-cuenta="${esc(c.id)}" aria-pressed="${c.id===cuenta}">${esc(c.nombre)}</button>`).join("") : "";
+  $("startTitle").textContent = multi ? `¿Con cuánto dinero empieza ${cuentaActual().nombre}?` : "¿Con cuánto dinero empiezas?";
+}
+$("cuentasTabs").addEventListener("click", e=>{
+  const id = e.target.closest("button")?.dataset.cuenta; if(!id || id===cuenta) return;
+  cuenta = id; try{ localStorage.setItem("cuenta:"+user.id, id); }catch(_){}
+  setCats(); balance = null; hasMovements = true; loadAll();
+});
 async function loadEmpresa(){
-  const { data, error } = await sb.from("empresas")
-    .select("nombre,logo_url,color_principal,color_acento,cat_gastos,cat_ingresos").maybeSingle();
+  let { data, error } = await sb.from("empresas")
+    .select("nombre,logo_url,color_principal,color_acento,cat_gastos,cat_ingresos,cuentas").maybeSingle();
+  if(error){ // por si aún no corriste la actualización SQL de cuentas
+    ({ data, error } = await sb.from("empresas").select("nombre,logo_url,color_principal,color_acento,cat_gastos,cat_ingresos").maybeSingle());
+  }
   applyBrand(error ? null : data);   // sin fila o sin tabla => app genérica
 }
 
@@ -325,7 +361,7 @@ $("logout").onclick = async ()=>{ await sb.auth.signOut(); };
 
 /* ---------- Datos ---------- */
 async function loadBalance(){
-  const { data, error } = await sb.rpc("get_balance");
+  const { data, error } = await sb.rpc("get_balance", { p_cuenta: cuenta });
   if(error){ balance = null; return; }
   const row = Array.isArray(data) ? data[0] : data;
   balance = Number(row?.balance ?? 0);
@@ -337,7 +373,7 @@ async function loadMonth(){
   const end = new Date(view.getFullYear(), view.getMonth()+1, 0);
   items = []; listMsg = "Cargando…"; render();
   const { data, error } = await sb.from("expenses")
-    .select("id,amount,category,note,spent_on,kind")
+    .select("id,amount,category,note,spent_on,kind").eq("cuenta", cuenta)
     .gte("spent_on", iso(start)).lte("spent_on", iso(end))
     .order("spent_on",{ascending:false}).order("id",{ascending:false});
   if(my !== loadToken) return;
@@ -348,6 +384,7 @@ async function loadMonth(){
 async function loadAll(){ await Promise.all([loadBalance(), loadMonth()]); render(); }
 
 function renderStatic(){
+  renderCuentas();
   document.querySelectorAll("span.cur").forEach(e=>e.textContent=currency);
   $("curInput").value = currency;
   $("monthLabel").textContent = view.toLocaleDateString("es-PE",{month:"long",year:"numeric"});
@@ -391,7 +428,7 @@ $("startForm").addEventListener("submit", async e=>{
   const amount = parseAmt($("startAmount").value);
   if(!(amount>0)){ toast("Escribe un monto mayor a 0"); return; }
   $("startBtn").disabled = true;
-  const { error } = await sb.from("expenses").insert({ amount, kind:"ingreso", category:"Saldo inicial", note:"Saldo inicial", spent_on:iso(new Date()) });
+  const { error } = await sb.from("expenses").insert({ amount, kind:"ingreso", category:"Saldo inicial", note:"Saldo inicial", spent_on:iso(new Date()), cuenta });
   $("startBtn").disabled = false;
   if(error){ toast("No se guardó. Revisa tu conexión e intenta de nuevo."); return; }
   $("startAmount").value=""; toast("Saldo inicial guardado"); loadAll();
@@ -403,7 +440,7 @@ $("addForm").addEventListener("submit", async e=>{
   if(!(amount>0)){ toast("Escribe un monto mayor a 0"); return; }
   const spent_on = $("date").value || iso(new Date());
   $("saveBtn").disabled = true;
-  const { error } = await sb.from("expenses").insert({ amount, kind, category:cat, note:$("noteIn").value.trim(), spent_on });
+  const { error } = await sb.from("expenses").insert({ amount, kind, category:cat, note:$("noteIn").value.trim(), spent_on, cuenta });
   $("saveBtn").disabled = false;
   if(error){ toast("No se guardó. Revisa tu conexión e intenta de nuevo."); return; }
   $("amount").value=""; $("noteIn").value="";
@@ -448,12 +485,14 @@ $("fbBtn").onclick = async ()=>{
 $("csv").onclick = async ()=>{
   const data = [];
   for(let from=0; ; from+=1000){
-    const { data:page, error } = await sb.from("expenses").select("spent_on,kind,category,note,amount")
+    const { data:page, error } = await sb.from("expenses").select("spent_on,kind,category,note,amount,cuenta")
       .order("spent_on").order("id").range(from, from+999);
     if(error){ toast("No se pudo exportar"); return; }
     data.push(...page); if(page.length < 1000) break;
   }
-  const rows = [["Fecha","Tipo","Categoría","Nota","Monto"], ...data.map(r=>[r.spent_on, r.kind==="ingreso"?"Ingreso":"Gasto", r.category, r.note, (r.kind==="ingreso"?1:-1)*Number(r.amount)])];
+  const multi = cuentas.length > 1, nombreDe = id => (cuentas.find(c=>c.id===id)?.nombre) || id;
+  const rows = [[...(multi?["Cuenta"]:[]),"Fecha","Tipo","Categoría","Nota","Monto"],
+    ...data.map(r=>[...(multi?[nombreDe(r.cuenta)]:[]), r.spent_on, r.kind==="ingreso"?"Ingreso":"Gasto", r.category, r.note, (r.kind==="ingreso"?1:-1)*Number(r.amount)])];
   const csv = "\ufeff" + rows.map(r=>r.map(v=>`"${(typeof v==="number" ? v.toFixed(2) : String(v??"").replace(/^[=+\-@]/,"'$&")).replace(/"/g,'""')}"`).join(",")).join("\n");
   const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
   const slug = (document.title||"").normalize("NFD").replace(/[^\w]+/g,"-").replace(/^-|-$/g,"").toLowerCase() || "movimientos";
