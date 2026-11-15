@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Gastos del negocio">
+<meta name="theme-color" content="#1d2b3a">
+<title>Gastos del negocio</title>
+<link rel="icon" id="favicon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<style>
+:root{
+  --bg:#e6ebee; --surface:#f7f9fa; --ink:#1d2b3a; --muted:#5d6b78; --line:#cfd7dd;
+  --accent:#e0a526; --accent-ink:#1d2b3a; --brand:var(--ink); --brand-ink:var(--bg);
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root{ --bg:#121a22; --surface:#1b2631; --ink:#e8edf1; --muted:#9aa8b4; --line:#2c3a47; --accent:#f0b84a; }
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 "Familjen Grotesk",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-tap-highlight-color:transparent}
+main{max-width:520px;margin:0 auto;padding:16px 16px 40px}
+button,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+button:disabled{opacity:.6;cursor:default}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+[hidden]{display:none!important}
+
+/* Marca de la empresa */
+.brand{display:flex;align-items:center;gap:10px;padding:4px 0 6px}
+.brand img{width:40px;height:40px;border-radius:10px;object-fit:contain;background:var(--surface)}
+.brand span{font-weight:700;font-size:18px;letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Login */
+.login{min-height:80vh;display:grid;align-content:center;gap:14px}
+.login h1{font-size:44px;line-height:1;letter-spacing:-.03em;margin:0 0 8px}
+.login p{color:var(--muted);margin:0 0 8px}
+.field{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:13px 14px;width:100%}
+.err{color:#b4432f;font-size:14px;min-height:1.2em;margin:0}
+@media (prefers-color-scheme:dark){.err{color:#e07a64}}
+
+.label{margin:8px 0 0;color:var(--muted);font-size:15px}
+.total.neg{color:#b4432f}
+@media (prefers-color-scheme:dark){.total.neg{color:#e07a64}}
+.month{display:flex;align-items:center;justify-content:space-between;margin:14px 0 4px;border-top:1px solid var(--line);padding-top:10px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 18px}
+.stat{background:var(--surface);border-radius:14px;padding:10px 12px}
+.stat span{display:block;font-size:13px;color:var(--muted)}
+.stat b{font-size:20px;font-variant-numeric:tabular-nums}
+.start{background:var(--brand);color:var(--brand-ink);border-radius:18px;padding:18px;display:grid;gap:12px;margin:10px 0 18px}
+.start h2{color:var(--brand-ink);margin:0;font-size:20px;font-weight:700}
+.start p{margin:0;opacity:.8;font-size:14px}
+.start .amount{border-color:rgba(127,127,127,.5)}
+.start .amount span{color:inherit;opacity:.7}
+.seg{display:grid;grid-template-columns:1fr 1fr;background:var(--bg);border-radius:10px;padding:3px}
+.seg button{border:0;background:none;border-radius:8px;padding:8px;font-weight:500;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+li .amt.in{color:#2f7a4f}
+@media (prefers-color-scheme:dark){li .amt.in{color:#7fcf9c}}
+.month button{background:none;border:0;font-size:28px;width:44px;height:44px;border-radius:50%;color:var(--muted)}
+.month h1{margin:0;font-size:17px;font-weight:500;color:var(--muted);text-transform:capitalize}
+.total{font-size:clamp(48px,15vw,72px);font-weight:700;letter-spacing:-.03em;line-height:1;margin:4px 0 4px;font-variant-numeric:tabular-nums}
+.total small{font-size:.4em;font-weight:500;color:var(--muted);margin-right:.2em;letter-spacing:0}
+.sub{color:var(--muted);font-size:14px;margin:0 0 18px}
+
+.bars{display:grid;gap:8px;margin-bottom:22px}
+.bar{display:grid;grid-template-columns:1fr auto;gap:2px 10px;font-size:14px}
+.bar .track{grid-column:1/-1;height:8px;background:var(--line);border-radius:4px;overflow:hidden}
+.bar .fill{height:100%;background:var(--brand);border-radius:4px}
+.bar:first-child .fill{background:var(--accent)}
+
+form.add{background:var(--surface);border-radius:18px;padding:16px;display:grid;gap:12px;margin-bottom:24px}
+.amount{display:flex;align-items:baseline;gap:6px;border-bottom:2px solid var(--line);padding-bottom:4px}
+.amount span{font-size:22px;color:var(--muted)}
+.amount input{border:0;background:none;font-size:34px;font-weight:700;width:100%;outline:none;font-variant-numeric:tabular-nums}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips button{border:1px solid var(--line);background:none;border-radius:999px;padding:7px 12px;font-size:14px}
+.chips button[aria-pressed="true"]{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
+.row{display:grid;grid-template-columns:1fr auto;gap:8px}
+.row input{border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:10px 12px;min-width:0;width:100%}
+.primary{background:var(--accent);color:var(--accent-ink);border:0;border-radius:12px;padding:14px;font-weight:700;font-size:17px}
+
+h2{font-size:15px;font-weight:500;color:var(--muted);margin:18px 0 6px}
+ul{list-style:none;margin:0;padding:0}
+li{display:grid;grid-template-columns:1fr auto auto;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+li .what{min-width:0}
+li .what b{font-weight:500;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+li .what span{font-size:13px;color:var(--muted)}
+li .amt{font-variant-numeric:tabular-nums;font-weight:500}
+li .del{background:none;border:0;color:var(--muted);font-size:20px;width:36px;height:36px;border-radius:50%}
+.empty{color:var(--muted);text-align:center;padding:24px 0}
+
+details{margin-top:16px;background:var(--surface);border-radius:14px;padding:12px 16px}
+details:first-of-type{margin-top:32px}
+summary{cursor:pointer;font-weight:500}
+.tools{display:grid;gap:10px;margin-top:12px}
+.tools label{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.tools input,.tools textarea{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:8px 10px}
+.tools input.cur{width:80px;text-align:center}
+.tools textarea{width:100%;min-height:96px;resize:vertical}
+.ghost{border:1px solid var(--line);background:none;border-radius:10px;padding:10px;text-align:center}
+.note{font-size:13px;color:var(--muted);margin:0}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw;text-align:center}
+.toast.on{opacity:1}
+@media (prefers-reduced-motion:reduce){.toast{transition:none}}
+</style>
+</head>
+<body>
+<main>
+  <section id="setup" hidden class="login">
+    <h1>Falta configurar</h1>
+    <p>Pega la URL y la clave pública de tu proyecto de Supabase al inicio del código (SUPABASE_URL y SUPABASE_KEY).</p>
+  </section>
+
+  <form id="loginForm" class="login" hidden>
+    <h1>Gastos del negocio</h1>
+    <p>Entra con el correo y la contraseña de tu empresa.</p>
+    <input class="field" id="email" type="email" autocomplete="email" placeholder="Correo" required>
+    <input class="field" id="password" type="password" autocomplete="current-password" placeholder="Contraseña" required>
+    <p class="err" id="loginErr"></p>
+    <button class="primary" type="submit" id="loginBtn">Entrar</button>
+  </form>
+
+  <section id="app" hidden>
+    <header class="brand" id="brand" hidden><img id="brandLogo" alt="" hidden><span id="brandName"></span></header>
+    <p class="label">Saldo disponible</p>
+    <div class="total" id="balance">…</div>
+
+    <form class="start" id="startForm" hidden autocomplete="off">
+      <h2>¿Con cuánto dinero empiezas?</h2>
+      <p>Suma lo que el negocio tiene hoy en caja, Yape/Plin y cuentas. Desde aquí se irán restando los gastos.</p>
+      <div class="amount"><span class="cur"></span><input id="startAmount" inputmode="decimal" placeholder="0.00" aria-label="Saldo inicial" required></div>
+      <button class="primary" type="submit" id="startBtn">Guardar saldo inicial</button>
+    </form>
+
+    <div class="month">
+      <button id="prev" aria-label="Mes anterior">‹</button>
+      <h1 id="monthLabel"></h1>
+      <button id="next" aria-label="Mes siguiente">›</button>
+    </div>
+    <div class="stats">
+      <div class="stat"><span>Gastos del mes</span><b id="monthOut"></b></div>
+      <div class="stat"><span>Ingresos del mes</span><b id="monthIn"></b></div>
+    </div>
+    <div class="bars" id="bars"></div>
+
+    <form class="add" id="addForm" autocomplete="off">
+      <div class="seg" role="group" aria-label="Tipo de movimiento">
+        <button type="button" data-k="gasto" aria-pressed="true">Gasto</button>
+        <button type="button" data-k="ingreso" aria-pressed="false">Ingreso</button>
+      </div>
+      <div class="amount"><span class="cur"></span><input id="amount" inputmode="decimal" placeholder="0.00" aria-label="Monto" required></div>
+      <div class="chips" id="chips" role="group" aria-label="Categoría"></div>
+      <div class="row">
+        <input id="noteIn" placeholder="Nota (opcional)" aria-label="Nota" maxlength="120">
+        <input id="date" type="date" aria-label="Fecha">
+      </div>
+      <button class="primary" type="submit" id="saveBtn">Guardar gasto</button>
+    </form>
+
+    <div id="list"></div>
+
+    <details>
+      <summary>Enviar comentario</summary>
+      <div class="tools">
+        <textarea id="fbText" placeholder="¿Qué te gustó, qué te confundió, qué le falta?" maxlength="4000"></textarea>
+        <button class="ghost" id="fbBtn">Enviar comentario</button>
+      </div>
+    </details>
+
+    <details>
+      <summary>Ajustes</summary>
+      <div class="tools">
+        <label>Símbolo de moneda <input class="cur" type="text" id="curInput" maxlength="4"></label>
+        <button class="ghost" id="csv">Exportar a CSV (Excel)</button>
+        <label>Nueva contraseña <input type="password" id="newPass" autocomplete="new-password" minlength="6" style="width:150px"></label>
+        <button class="ghost" id="passBtn">Cambiar contraseña</button>
+        <p class="note" id="who"></p>
+        <button class="ghost" id="logout">Cerrar sesión</button>
+      </div>
+    </details>
+  </section>
+</main>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+/* ===== CONFIGURA AQUÍ (Supabase > Project Settings > API) ===== */
+const SUPABASE_URL = "PEGA_AQUI_TU_URL";   // ej: https://abcd1234.supabase.co
+const SUPABASE_KEY = "PEGA_AQUI_TU_CLAVE"; // clave "anon" o "publishable" (es pública, NUNCA la "service_role")
+/* ============================================================== */
+
+const DEFAULT_CATS = { gasto:["Comida","Transporte","Casa","Servicios","Salud","Ocio","Compras","Otros"],
+                       ingreso:["Sueldo","Extra","Devolución","Regalo","Otros"] };
+let CATS = { ...DEFAULT_CATS };
+const $ = id => document.getElementById(id);
+let sb, user = null, items = [], kind = "gasto", cat = CATS.gasto[0], currency = "S/", loadToken = 0;
+let balance = null, hasMovements = true, listMsg = null;
+let view = new Date(); view.setDate(1);
+
+const pad = n => String(n).padStart(2,"0");
+const iso = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const fmt = n => Number(n).toLocaleString("es-PE",{minimumFractionDigits:2,maximumFractionDigits:2});
+const money = n => `${esc(currency)} ${fmt(n)}`;
+const esc = s => String(s ?? "").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const parseAmt = v => Math.round(parseFloat(String(v).replace(",","."))*100)/100;
+function toast(t){ const el=$("toast"); el.textContent=t; el.classList.add("on"); clearTimeout(toast.t); toast.t=setTimeout(()=>el.classList.remove("on"),2200); }
+function show(which){ ["setup","loginForm","app"].forEach(id=>$(id).hidden = id!==which); }
+
+/* ---------- Marca de la empresa ---------- */
+const HEX = /^#[0-9a-f]{6}$/i;
+const DEFAULT_THEME = document.querySelector('meta[name="theme-color"]').content;
+// Texto legible (blanco u oscuro) sobre un color de fondo
+function inkFor(hex){
+  const [r,g,b] = [1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)/255).map(c=>c<=.03928?c/12.92:((c+.055)/1.055)**2.4);
+  return (0.2126*r+0.7152*g+0.0722*b) > 0.4 ? "#1d2b3a" : "#ffffff";
+}
+function cleanCats(arr){
+  if(!Array.isArray(arr)) return null;
+  const list = [...new Set(arr.map(c=>String(c??"").trim().slice(0,40)).filter(Boolean))];
+  return list.length ? list : null;
+}
+function applyBrand(e){
+  const root = document.documentElement.style;
+  ["--brand","--brand-ink","--accent","--accent-ink"].forEach(v=>root.removeProperty(v));
+  CATS = { gasto: cleanCats(e?.cat_gastos) || DEFAULT_CATS.gasto, ingreso: cleanCats(e?.cat_ingresos) || DEFAULT_CATS.ingreso };
+  if(!CATS[kind].includes(cat)) cat = CATS[kind][0];
+  const name = e?.nombre?.trim() || "";
+  document.title = name || "Gastos del negocio";
+  document.querySelector('meta[name="apple-mobile-web-app-title"]').content = name || "Gastos del negocio";
+  $("brandName").textContent = name;
+  const logo = $("brandLogo"), url = /^https:\/\//.test(e?.logo_url||"") ? e.logo_url : "";
+  logo.hidden = !url;
+  if(url){ logo.src = url; logo.alt = `Logo de ${name}`; logo.onerror = ()=>{ logo.hidden = true; }; } else logo.removeAttribute("src");
+  $("favicon").href = url || "data:,";
+  $("brand").hidden = !name && !url;
+  let theme = DEFAULT_THEME;
+  if(HEX.test(e?.color_principal||"")){ root.setProperty("--brand", e.color_principal); root.setProperty("--brand-ink", inkFor(e.color_principal)); theme = e.color_principal; }
+  if(HEX.test(e?.color_acento||"")){ root.setProperty("--accent", e.color_acento); root.setProperty("--accent-ink", inkFor(e.color_acento)); }
+  document.querySelector('meta[name="theme-color"]').content = theme;
+}
+async function loadEmpresa(){
+  const { data, error } = await sb.from("empresas")
+    .select("nombre,logo_url,color_principal,color_acento,cat_gastos,cat_ingresos").maybeSingle();
+  applyBrand(error ? null : data);   // sin fila o sin tabla => app genérica
+}
+
+/* ---------- Sesión ---------- */
+function onUser(u){
+  const changed = (u?.id||null) !== (user?.id||null);
+  user = u;
+  if(!u){ show("loginForm"); items=[]; applyBrand(null); return; }
+  currency = u.user_metadata?.currency || "S/";
+  $("who").textContent = `Sesión iniciada como ${u.email}`;
+  show("app");
+  if(changed) loadEmpresa().then(loadAll);
+}
+$("loginForm").addEventListener("submit", async e=>{
+  e.preventDefault();
+  $("loginErr").textContent=""; $("loginBtn").disabled=true;
+  const { error } = await sb.auth.signInWithPassword({ email:$("email").value.trim(), password:$("password").value });
+  $("loginBtn").disabled=false;
+  if(error) $("loginErr").textContent = /invalid/i.test(error.message) ? "Correo o contraseña incorrectos." : "No se pudo entrar: " + error.message;
+});
+$("logout").onclick = async ()=>{ await sb.auth.signOut(); };
+
+/* ---------- Datos ---------- */
+async function loadBalance(){
+  const { data, error } = await sb.rpc("get_balance");
+  if(error){ balance = null; return; }
+  const row = Array.isArray(data) ? data[0] : data;
+  balance = Number(row?.balance ?? 0);
+  hasMovements = Number(row?.movimientos ?? 0) > 0;
+}
+async function loadMonth(){
+  const my = ++loadToken;
+  const start = new Date(view.getFullYear(), view.getMonth(), 1);
+  const end = new Date(view.getFullYear(), view.getMonth()+1, 0);
+  items = []; listMsg = "Cargando…"; render();
+  const { data, error } = await sb.from("expenses")
+    .select("id,amount,category,note,spent_on,kind")
+    .gte("spent_on", iso(start)).lte("spent_on", iso(end))
+    .order("spent_on",{ascending:false}).order("id",{ascending:false});
+  if(my !== loadToken) return;
+  if(error){ listMsg = "No se pudieron cargar los movimientos. Revisa tu conexión y vuelve a intentar."; render(); return; }
+  items = data.map(r=>({...r, amount:Number(r.amount), kind:r.kind||"gasto"})); listMsg = null;
+  render();
+}
+async function loadAll(){ await Promise.all([loadBalance(), loadMonth()]); render(); }
+
+function renderStatic(){
+  document.querySelectorAll("span.cur").forEach(e=>e.textContent=currency);
+  $("curInput").value = currency;
+  $("monthLabel").textContent = view.toLocaleDateString("es-PE",{month:"long",year:"numeric"});
+  document.querySelectorAll(".seg button").forEach(b=>b.setAttribute("aria-pressed", b.dataset.k===kind));
+  $("chips").innerHTML = CATS[kind].map(c=>`<button type="button" aria-pressed="${c===cat}" data-c="${esc(c)}">${esc(c)}</button>`).join("");
+  $("saveBtn").textContent = kind==="gasto" ? "Guardar gasto" : "Guardar ingreso";
+  const b = $("balance");
+  if(balance === null){ b.textContent = "—"; b.classList.remove("neg"); }
+  else { b.innerHTML = `<small>${esc(currency)}</small>${balance<0?"−":""}${fmt(Math.abs(balance))}`; b.classList.toggle("neg", balance<0); }
+  $("startForm").hidden = hasMovements;
+}
+
+function render(){
+  renderStatic();
+  const out = items.filter(i=>i.kind==="gasto"), inc = items.filter(i=>i.kind==="ingreso" && i.category!=="Saldo inicial");
+  $("monthOut").textContent = money(out.reduce((s,i)=>s+i.amount,0));
+  $("monthIn").textContent = money(inc.reduce((s,i)=>s+i.amount,0));
+  const by = {}; out.forEach(i=>by[i.category]=(by[i.category]||0)+i.amount);
+  const ranked = Object.entries(by).sort((a,b)=>b[1]-a[1]);
+  $("bars").innerHTML = ranked.map(([c,v])=>`<div class="bar"><span>${esc(c)}</span><span>${money(v)}</span><div class="track"><div class="fill" style="width:${(v/ranked[0][1]*100).toFixed(1)}%"></div></div></div>`).join("");
+  if(listMsg){ $("list").innerHTML = `<p class="empty">${esc(listMsg)}</p>`; return; }
+  if(!items.length){ $("list").innerHTML = `<p class="empty">No hay movimientos este mes.</p>`; return; }
+  const days = {}; items.forEach(i=>(days[i.spent_on]=days[i.spent_on]||[]).push(i));
+  $("list").innerHTML = Object.entries(days).map(([d,arr])=>{
+    const label = new Date(d+"T12:00").toLocaleDateString("es-PE",{weekday:"long",day:"numeric",month:"short"});
+    return `<h2>${label}</h2><ul>${arr.map(i=>{
+      const isIn = i.kind==="ingreso";
+      return `<li><div class="what"><b>${esc(i.note||i.category)}</b><span>${isIn?"Ingreso · ":""}${esc(i.category)}</span></div><span class="amt${isIn?" in":""}">${isIn?"+":"−"} ${money(i.amount)}</span><button class="del" data-id="${i.id}" aria-label="Borrar movimiento">×</button></li>`;
+    }).join("")}</ul>`;
+  }).join("");
+}
+
+document.querySelector(".seg").addEventListener("click",e=>{
+  const k=e.target.dataset.k; if(!k||k===kind) return;
+  kind=k; cat=CATS[k][0]; renderStatic();
+});
+$("chips").addEventListener("click",e=>{ const c=e.target.dataset.c; if(c){ cat=c; renderStatic(); }});
+
+$("startForm").addEventListener("submit", async e=>{
+  e.preventDefault();
+  const amount = parseAmt($("startAmount").value);
+  if(!(amount>0)){ toast("Escribe un monto mayor a 0"); return; }
+  $("startBtn").disabled = true;
+  const { error } = await sb.from("expenses").insert({ amount, kind:"ingreso", category:"Saldo inicial", note:"Saldo inicial", spent_on:iso(new Date()) });
+  $("startBtn").disabled = false;
+  if(error){ toast("No se guardó. Revisa tu conexión e intenta de nuevo."); return; }
+  $("startAmount").value=""; toast("Saldo inicial guardado"); loadAll();
+});
+
+$("addForm").addEventListener("submit", async e=>{
+  e.preventDefault();
+  const amount = parseAmt($("amount").value);
+  if(!(amount>0)){ toast("Escribe un monto mayor a 0"); return; }
+  const spent_on = $("date").value || iso(new Date());
+  $("saveBtn").disabled = true;
+  const { error } = await sb.from("expenses").insert({ amount, kind, category:cat, note:$("noteIn").value.trim(), spent_on });
+  $("saveBtn").disabled = false;
+  if(error){ toast("No se guardó. Revisa tu conexión e intenta de nuevo."); return; }
+  $("amount").value=""; $("noteIn").value="";
+  const d = new Date(spent_on+"T12:00"); view = new Date(d.getFullYear(), d.getMonth(), 1);
+  toast(kind==="gasto" ? "Gasto guardado" : "Ingreso guardado"); loadAll();
+});
+
+$("list").addEventListener("click", async e=>{
+  const id = e.target.dataset.id; if(!id || !confirm("¿Borrar este movimiento?")) return;
+  const { error } = await sb.from("expenses").delete().eq("id", id);
+  if(error){ toast("No se pudo borrar"); return; }
+  toast("Movimiento borrado"); loadAll();
+});
+
+$("prev").onclick=()=>{ view.setMonth(view.getMonth()-1); loadMonth(); };
+$("next").onclick=()=>{ view.setMonth(view.getMonth()+1); loadMonth(); };
+
+$("curInput").addEventListener("change", async e=>{
+  currency = e.target.value.trim() || "S/"; render();
+  const { error } = await sb.auth.updateUser({ data:{ currency } });
+  if(error) toast("No se pudo guardar la moneda");
+});
+
+$("passBtn").onclick = async ()=>{
+  const p = $("newPass").value;
+  if(p.length < 6){ toast("La contraseña debe tener al menos 6 caracteres"); return; }
+  const { error } = await sb.auth.updateUser({ password:p });
+  if(error){ toast("No se pudo cambiar: " + error.message); return; }
+  $("newPass").value=""; toast("Contraseña cambiada");
+};
+
+$("fbBtn").onclick = async ()=>{
+  const message = $("fbText").value.trim();
+  if(!message){ toast("Escribe tu comentario primero"); return; }
+  $("fbBtn").disabled = true;
+  const { error } = await sb.from("feedback").insert({ message });
+  $("fbBtn").disabled = false;
+  if(error){ toast("No se pudo enviar"); return; }
+  $("fbText").value=""; toast("¡Gracias! Comentario enviado");
+};
+
+$("csv").onclick = async ()=>{
+  const data = [];
+  for(let from=0; ; from+=1000){
+    const { data:page, error } = await sb.from("expenses").select("spent_on,kind,category,note,amount")
+      .order("spent_on").order("id").range(from, from+999);
+    if(error){ toast("No se pudo exportar"); return; }
+    data.push(...page); if(page.length < 1000) break;
+  }
+  const rows = [["Fecha","Tipo","Categoría","Nota","Monto"], ...data.map(r=>[r.spent_on, r.kind==="ingreso"?"Ingreso":"Gasto", r.category, r.note, (r.kind==="ingreso"?1:-1)*Number(r.amount)])];
+  const csv = "\ufeff" + rows.map(r=>r.map(v=>`"${(typeof v==="number" ? v.toFixed(2) : String(v??"").replace(/^[=+\-@]/,"'$&")).replace(/"/g,'""')}"`).join(",")).join("\n");
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv],{type:"text/csv"}));
+  const slug = (document.title||"").normalize("NFD").replace(/[^\w]+/g,"-").replace(/^-|-$/g,"").toLowerCase() || "movimientos";
+  a.download = `${slug}-${iso(new Date())}.csv`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+};
+
+
+/* ---------- Arranque ---------- */
+$("date").value = iso(new Date());
+if(!window.supabase || SUPABASE_URL.startsWith("PEGA") || SUPABASE_KEY.startsWith("PEGA")){ show("setup"); }
+else {
+  sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  sb.auth.onAuthStateChange((_ev, session)=>{ setTimeout(()=>onUser(session?.user || null), 0); });
+}
+</script>
+</body>
+</html>
