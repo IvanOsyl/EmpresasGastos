@@ -16,7 +16,7 @@
 <style>
 :root{
   --bg:#e6ebee; --surface:#f7f9fa; --ink:#1d2b3a; --muted:#5d6b78; --line:#cfd7dd;
-  --accent:#e0a526; --accent-ink:#1d2b3a; --brand:var(--ink); --brand-ink:var(--bg);
+  --accent:#e0a526; --accent-ink:#1d2b3a; --brand:var(--ink); --brand-ink:var(--bg); --brand-ui:var(--brand); --brand-ui-ink:var(--brand-ink);
   box-sizing:border-box;
   padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
 }
@@ -26,7 +26,7 @@
 *,*::before,*::after{box-sizing:inherit}
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 "Familjen Grotesk",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-tap-highlight-color:transparent}
-main{max-width:520px;margin:0 auto;padding:16px 16px 40px}
+main{max-width:560px;margin:0 auto;padding:16px 16px calc(40px + env(safe-area-inset-bottom,0px))}
 button,input,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
 button:disabled{opacity:.6;cursor:default}
@@ -34,12 +34,13 @@ button:disabled{opacity:.6;cursor:default}
 [hidden]{display:none!important}
 
 /* Marca de la empresa */
-.brand{display:flex;align-items:center;gap:10px;padding:4px 0 6px}
-.brand img{width:40px;height:40px;border-radius:10px;object-fit:contain;background:var(--surface)}
+.brand{position:sticky;top:0;z-index:10;background:var(--brand);color:var(--brand-ink);box-shadow:0 1px 6px rgba(0,0,0,.18)}
+.brand-in{max-width:560px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:12px;min-height:60px}
+.brand img{width:40px;height:40px;flex:none;border-radius:10px;object-fit:contain;background:#fff;padding:3px}
 .brand span{font-weight:700;font-size:18px;letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 /* Login */
-.login{min-height:80vh;display:grid;align-content:center;gap:14px}
+.login{max-width:420px;margin:0 auto;min-height:80vh;display:grid;align-content:center;gap:14px}
 .login h1{font-size:44px;line-height:1;letter-spacing:-.03em;margin:0 0 8px}
 .login p{color:var(--muted);margin:0 0 8px}
 .field{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:13px 14px;width:100%}
@@ -66,14 +67,14 @@ li .amt.in{color:#2f7a4f}
 @media (prefers-color-scheme:dark){li .amt.in{color:#7fcf9c}}
 .month button{background:none;border:0;font-size:28px;width:44px;height:44px;border-radius:50%;color:var(--muted)}
 .month h1{margin:0;font-size:17px;font-weight:500;color:var(--muted);text-transform:capitalize}
-.total{font-size:clamp(48px,15vw,72px);font-weight:700;letter-spacing:-.03em;line-height:1;margin:4px 0 4px;font-variant-numeric:tabular-nums}
+.total{font-size:clamp(40px,13vw,72px);overflow-wrap:anywhere;font-weight:700;letter-spacing:-.03em;line-height:1;margin:4px 0 4px;font-variant-numeric:tabular-nums}
 .total small{font-size:.4em;font-weight:500;color:var(--muted);margin-right:.2em;letter-spacing:0}
 .sub{color:var(--muted);font-size:14px;margin:0 0 18px}
 
 .bars{display:grid;gap:8px;margin-bottom:22px}
 .bar{display:grid;grid-template-columns:1fr auto;gap:2px 10px;font-size:14px}
 .bar .track{grid-column:1/-1;height:8px;background:var(--line);border-radius:4px;overflow:hidden}
-.bar .fill{height:100%;background:var(--brand);border-radius:4px}
+.bar .fill{height:100%;background:var(--brand-ui);border-radius:4px}
 .bar:first-child .fill{background:var(--accent)}
 
 form.add{background:var(--surface);border-radius:18px;padding:16px;display:grid;gap:12px;margin-bottom:24px}
@@ -82,7 +83,7 @@ form.add{background:var(--surface);border-radius:18px;padding:16px;display:grid;
 .amount input{border:0;background:none;font-size:34px;font-weight:700;width:100%;outline:none;font-variant-numeric:tabular-nums}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
 .chips button{border:1px solid var(--line);background:none;border-radius:999px;padding:7px 12px;font-size:14px}
-.chips button[aria-pressed="true"]{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
+.chips button[aria-pressed="true"]{background:var(--brand-ui);color:var(--brand-ui-ink);border-color:var(--brand-ui)}
 .row{display:grid;grid-template-columns:1fr auto;gap:8px}
 .row input{border:1px solid var(--line);background:var(--bg);border-radius:10px;padding:10px 12px;min-width:0;width:100%}
 .primary{background:var(--accent);color:var(--accent-ink);border:0;border-radius:12px;padding:14px;font-weight:700;font-size:17px}
@@ -110,9 +111,46 @@ summary{cursor:pointer;font-weight:500}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw;text-align:center}
 .toast.on{opacity:1}
 @media (prefers-reduced-motion:reduce){.toast{transition:none}}
+
+/* ===== Responsive ===== */
+/* Celular / tablet: una columna, en este orden */
+#app:not([hidden]){display:flex;flex-direction:column}
+.col-a,.col-b{display:contents}
+.col-a .label{order:1} #balance{order:2} #startForm{order:3}
+.col-b .month{order:4} .stats{order:5} #bars{order:6}
+#addForm{order:7} #list{order:8} #app details{order:9}
+@media (max-width:380px){
+  main{padding-left:12px;padding-right:12px}
+  .stat b{font-size:17px}
+  .amount input{font-size:28px}
+  .row{grid-template-columns:1fr}
+  .brand-in{padding:8px 12px;min-height:54px}
+  .brand img{width:34px;height:34px}
+  .brand span{font-size:16px}
+}
+/* Computadora: panel de dos columnas */
+@media (min-width:900px){
+  main{max-width:1160px;padding:28px 32px 56px}
+  .brand-in{max-width:1160px;padding:12px 32px;min-height:68px}
+  .brand img{width:44px;height:44px}
+  .brand span{font-size:20px}
+  #app:not([hidden]){display:grid;grid-template-columns:minmax(340px,420px) minmax(0,1fr);grid-template-rows:auto 1fr;gap:0 36px;align-items:start}
+  .col-a,.col-b{display:block;min-width:0}
+  .col-a{grid-column:1;grid-row:1}
+  .col-a2{grid-row:2}
+  .col-b{grid-column:2;grid-row:1/span 2;background:var(--surface);border-radius:20px;padding:8px 24px 20px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+  .col-b .month{border-top:0;margin-top:0}
+  .col-b .stat{background:var(--bg)}
+  .col-b .stat b{font-size:24px}
+  .total{font-size:clamp(44px,4.6vw,64px);margin-bottom:16px}
+  .label{margin-top:0}
+  form.add{box-shadow:0 1px 3px rgba(0,0,0,.06)}
+  #app details:first-of-type{margin-top:8px}
+}
 </style>
 </head>
 <body>
+<header class="brand" id="brand" hidden><div class="brand-in"><img id="brandLogo" alt="" hidden><span id="brandName"></span></div></header>
 <main>
   <section id="setup" hidden class="login">
     <h1>Falta configurar</h1>
@@ -129,7 +167,7 @@ summary{cursor:pointer;font-weight:500}
   </form>
 
   <section id="app" hidden>
-    <header class="brand" id="brand" hidden><img id="brandLogo" alt="" hidden><span id="brandName"></span></header>
+   <div class="col-a">
     <p class="label">Saldo disponible</p>
     <div class="total" id="balance">…</div>
 
@@ -139,7 +177,9 @@ summary{cursor:pointer;font-weight:500}
       <div class="amount"><span class="cur"></span><input id="startAmount" inputmode="decimal" placeholder="0.00" aria-label="Saldo inicial" required></div>
       <button class="primary" type="submit" id="startBtn">Guardar saldo inicial</button>
     </form>
+   </div>
 
+   <div class="col-b">
     <div class="month">
       <button id="prev" aria-label="Mes anterior">‹</button>
       <h1 id="monthLabel"></h1>
@@ -150,7 +190,10 @@ summary{cursor:pointer;font-weight:500}
       <div class="stat"><span>Ingresos del mes</span><b id="monthIn"></b></div>
     </div>
     <div class="bars" id="bars"></div>
+    <div id="list"></div>
+   </div>
 
+   <div class="col-a col-a2">
     <form class="add" id="addForm" autocomplete="off">
       <div class="seg" role="group" aria-label="Tipo de movimiento">
         <button type="button" data-k="gasto" aria-pressed="true">Gasto</button>
@@ -164,8 +207,6 @@ summary{cursor:pointer;font-weight:500}
       </div>
       <button class="primary" type="submit" id="saveBtn">Guardar gasto</button>
     </form>
-
-    <div id="list"></div>
 
     <details>
       <summary>Enviar comentario</summary>
@@ -186,6 +227,7 @@ summary{cursor:pointer;font-weight:500}
         <button class="ghost" id="logout">Cerrar sesión</button>
       </div>
     </details>
+   </div>
   </section>
 </main>
 <div class="toast" id="toast" role="status"></div>
@@ -217,9 +259,19 @@ function show(which){ ["setup","loginForm","app"].forEach(id=>$(id).hidden = id!
 const HEX = /^#[0-9a-f]{6}$/i;
 const DEFAULT_THEME = document.querySelector('meta[name="theme-color"]').content;
 // Texto legible (blanco u oscuro) sobre un color de fondo
-function inkFor(hex){
+function lum(hex){
   const [r,g,b] = [1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)/255).map(c=>c<=.03928?c/12.92:((c+.055)/1.055)**2.4);
-  return (0.2126*r+0.7152*g+0.0722*b) > 0.4 ? "#1d2b3a" : "#ffffff";
+  return 0.2126*r+0.7152*g+0.0722*b;
+}
+function inkFor(hex){ return lum(hex) > 0.4 ? "#1d2b3a" : "#ffffff"; }
+// Si el color es muy claro, lo oscurece (mismo tono) para que se note sobre el fondo claro
+function uiColor(hex){
+  let c = hex;
+  for(let f=1; lum(c) > 0.22 && f > 0.2; ){
+    f -= 0.05;
+    c = "#" + [1,3,5].map(i=>Math.round(parseInt(hex.slice(i,i+2),16)*f).toString(16).padStart(2,"0")).join("");
+  }
+  return c;
 }
 function cleanCats(arr){
   if(!Array.isArray(arr)) return null;
@@ -228,7 +280,7 @@ function cleanCats(arr){
 }
 function applyBrand(e){
   const root = document.documentElement.style;
-  ["--brand","--brand-ink","--accent","--accent-ink"].forEach(v=>root.removeProperty(v));
+  ["--brand","--brand-ink","--brand-ui","--brand-ui-ink","--accent","--accent-ink"].forEach(v=>root.removeProperty(v));
   CATS = { gasto: cleanCats(e?.cat_gastos) || DEFAULT_CATS.gasto, ingreso: cleanCats(e?.cat_ingresos) || DEFAULT_CATS.ingreso };
   if(!CATS[kind].includes(cat)) cat = CATS[kind][0];
   const name = e?.nombre?.trim() || "";
@@ -241,7 +293,8 @@ function applyBrand(e){
   $("favicon").href = url || "data:,";
   $("brand").hidden = !name && !url;
   let theme = DEFAULT_THEME;
-  if(HEX.test(e?.color_principal||"")){ root.setProperty("--brand", e.color_principal); root.setProperty("--brand-ink", inkFor(e.color_principal)); theme = e.color_principal; }
+  if(HEX.test(e?.color_principal||"")){ root.setProperty("--brand", e.color_principal); root.setProperty("--brand-ink", inkFor(e.color_principal)); theme = e.color_principal;
+    const ui = uiColor(e.color_principal); root.setProperty("--brand-ui", ui); root.setProperty("--brand-ui-ink", inkFor(ui)); }
   if(HEX.test(e?.color_acento||"")){ root.setProperty("--accent", e.color_acento); root.setProperty("--accent-ink", inkFor(e.color_acento)); }
   document.querySelector('meta[name="theme-color"]').content = theme;
 }
