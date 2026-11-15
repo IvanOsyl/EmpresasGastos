@@ -7,13 +7,18 @@ create table if not exists public.expenses (
   id         bigint generated always as identity primary key,
   user_id    uuid not null default auth.uid() references auth.users(id) on delete cascade,
   kind       text not null default 'gasto' check (kind in ('gasto','ingreso')),
+  cuenta     text not null default 'principal' check (cuenta ~ '^[a-z0-9_-]{1,30}$'),  -- cuentas separadas (ej: tienda / kekes)
   amount     numeric(12,2) not null check (amount > 0),
   category   text not null check (char_length(category) between 1 and 60),
   note       text not null default '' check (char_length(note) <= 120),
   spent_on   date not null default current_date,
   created_at timestamptz not null default now()
 );
-create index if not exists expenses_user_date on public.expenses (user_id, spent_on);
+-- (si la tabla ya existía de antes, agrega la columna de cuentas)
+alter table public.expenses add column if not exists cuenta text not null default 'principal'
+  check (cuenta ~ '^[a-z0-9_-]{1,30}$');
+drop index if exists public.expenses_user_date;
+create index if not exists expenses_user_cuenta_date on public.expenses (user_id, cuenta, spent_on);
 
 -- Cada empresa solo ve, crea, edita y borra SUS movimientos
 alter table public.expenses enable row level security;
@@ -31,17 +36,18 @@ create policy "editar mis gastos" on public.expenses
 create policy "borrar mis gastos" on public.expenses
   for delete to authenticated using ((select auth.uid()) = user_id);
 
--- Saldo de la empresa actual: ingresos - gastos (respeta la seguridad: cada uno suma lo suyo)
-create or replace function public.get_balance()
+-- Saldo de una cuenta de la empresa actual: ingresos - gastos (respeta la seguridad: cada uno suma lo suyo)
+drop function if exists public.get_balance();
+create or replace function public.get_balance(p_cuenta text default 'principal')
 returns table (balance numeric, movimientos bigint)
 language sql stable security invoker set search_path = public
 as $$
   select coalesce(sum(case when kind = 'ingreso' then amount else -amount end), 0) as balance,
          count(*) as movimientos
   from public.expenses
-  where user_id = (select auth.uid());
+  where user_id = (select auth.uid()) and cuenta = p_cuenta;
 $$;
-grant execute on function public.get_balance() to authenticated;
+grant execute on function public.get_balance(text) to authenticated;
 
 -- ---------- Comentarios de los clientes (los lees en Table Editor > feedback) ----------
 create table if not exists public.feedback (
@@ -68,8 +74,11 @@ create table if not exists public.empresas (
   color_acento     text check (color_acento    ~ '^#[0-9a-fA-F]{6}$'),    -- botones, ej: #f59e0b
   cat_gastos       text[],                                                -- opcional: categorías propias
   cat_ingresos     text[],                                                -- opcional: categorías propias
+  cuentas          jsonb,                                                 -- opcional: cuentas separadas (ver abajo)
   created_at       timestamptz not null default now()
 );
+
+alter table public.empresas add column if not exists cuentas jsonb;
 
 -- La empresa solo puede LEER su configuración. Crearla/editarla lo haces tú desde el panel.
 alter table public.empresas enable row level security;
@@ -104,3 +113,19 @@ on conflict (id) do nothing;
 --
 -- Si cat_gastos / cat_ingresos van en null se usan las categorías por defecto.
 -- Si un usuario no tiene fila en "empresas", ve la app genérica sin logo.
+
+-- ===== CUENTAS SEPARADAS (opcional, solo para empresas que lo necesiten) =====
+-- Ej: una tienda de bebidas que además vende kekes a pedido, sin mezclar el dinero.
+-- La cuenta principal SIEMPRE debe tener id 'principal'. Los id van en minúsculas, sin espacios ni tildes.
+--
+-- update public.empresas set cuentas = '[
+--   {"id":"principal", "nombre":"Tienda de bebidas",
+--    "cat_gastos":["Mercadería","Alquiler","Luz y agua","Transporte","Otros"],
+--    "cat_ingresos":["Ventas","Otros"]},
+--   {"id":"kekes", "nombre":"Kekes a pedido",
+--    "cat_gastos":["Harina","Huevos","Azúcar y otros","Empaques","Gas","Otros"],
+--    "cat_ingresos":["Pedidos","Otros"]}
+-- ]'::jsonb
+-- where user_id = (select id from auth.users where email = 'cliente@correo.com');
+--
+-- Para quitarlas: update public.empresas set cuentas = null where ...
